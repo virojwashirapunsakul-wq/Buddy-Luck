@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BUDDY LUCK — Connection Test</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Mitr:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--y:#ffe600;--c:#00e5ff;--m:#ff2bd6;--g:#39ff14;--r:#ff4d4d}
+*{box-sizing:border-box}
+body{margin:0;background:#000;color:#f2f2f2;font-family:Mitr,system-ui,sans-serif;font-size:15px;padding:18px}
+.px{font-family:"Press Start 2P",monospace}
+h1{font-size:20px;color:var(--y);text-shadow:3px 3px 0 var(--m);margin:0 0 4px}
+.sub{color:#bbb;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;max-width:1200px}
+.box{border:3px solid var(--c);padding:14px;background:#05050f}
+.box h2{font-size:12px;color:var(--c);margin:0 0 10px}
+.chk{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid #222}
+.chk b{width:26px}
+.ok{color:var(--g)}.bad{color:var(--r)}.wait{color:#888}
+input,select,button{font:inherit;padding:8px;background:#111;color:#fff;border:2px solid #555}
+button{background:#000;color:var(--y);border:3px solid var(--y);cursor:pointer}
+button:hover:not(:disabled){background:var(--y);color:#000}
+button:disabled{opacity:.35}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:5px;border-bottom:1px solid #222}
+#log{height:180px;overflow-y:auto;font-family:ui-monospace,monospace;font-size:12px;color:#aaa}
+.verdict{font-size:18px;font-weight:600;margin-top:10px}
+</style>
+</head>
+<body>
+<h1 class="px">CONNECTION TEST</h1>
+<div class="sub">ทดสอบว่าเครื่องนี้เล่น Buddy Luck ได้ไหม · เปิดพร้อมกันหลายคนแล้วกด PING</div>
+
+<div class="grid">
+  <div class="box">
+    <h2 class="px">1. CHECKS</h2>
+    <div id="checks"></div>
+    <div class="verdict" id="verdict"></div>
+  </div>
+
+  <div class="box">
+    <h2 class="px">2. JOIN</h2>
+    <div class="row"><input id="name" placeholder="ชื่อเล่น" maxlength="16"></div>
+    <div class="row"><select id="net">
+      <option>💻 คอมบริษัท + VPN</option><option>💻 คอมบริษัท ไม่ต่อ VPN</option>
+      <option>📱 มือถือ เน็ตมือถือ</option><option>📱 มือถือ Wi-Fi</option><option>อื่น ๆ</option></select>
+      <button id="join" disabled>JOIN</button></div>
+    <h2 class="px" style="margin-top:14px">ONLINE <span id="cnt">0</span></h2>
+    <table><thead><tr><th>ชื่อ</th><th>เครือข่าย</th><th>PING</th></tr></thead><tbody id="people"></tbody></table>
+    <div class="row"><button id="ping" disabled>📡 PING ทุกคน</button></div>
+  </div>
+
+  <div class="box">
+    <h2 class="px">3. SECRET ANSWER</h2>
+    <div class="sub" style="margin:0 0 8px">จำลองการตอบแบบซ่อน: ส่งแล้วคนอื่นเห็นแค่ 🔒 จนกว่าจะมีคนกดเปิด</div>
+    <div class="row"><input id="num" type="number" placeholder="ตัวเลขลับ" style="width:140px"><button id="lock" disabled>🔒 ส่ง</button><button id="reveal" disabled>🔓 เปิดทั้งหมด</button></div>
+    <table><tbody id="answers"></tbody></table>
+  </div>
+
+  <div class="box">
+    <h2 class="px">LOG</h2>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const $=id=>document.getElementById(id), esc=s=>String(s).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+const log=t=>{$('log').insertAdjacentHTML('afterbegin',`<div>${new Date().toLocaleTimeString()} ${esc(t)}</div>`)};
+const CHECKS=[['page','โหลดหน้าเว็บได้'],['font','ฟอนต์ (Google Fonts)'],['lib','ไลบรารี Supabase (jsdelivr)'],['cfg','ใส่ค่าใน config.js แล้ว'],['rt','เชื่อม Realtime (server)'],['peer','เห็นเครื่องอื่น']];
+const state={};
+function setCheck(k,v,note=''){state[k]=v;$('checks').innerHTML=CHECKS.map(([key,l])=>{const s=state[key];
+  return `<div class="chk"><b class="${s===true?'ok':s===false?'bad':'wait'}">${s===true?'✔':s===false?'✘':'…'}</b><span>${l} <small style="color:#888">${key===k?esc(note):(state[key+'_n']||'')}</small></span></div>`}).join('');
+  state[k+'_n']=esc(note);verdict()}
+function verdict(){const core=['page','lib','cfg','rt'];let t='';
+  if(core.some(k=>state[k]===false))t='<span class="bad">❌ เครื่องนี้ยังเล่นไม่ได้ — ดู ✘ ด้านบน</span>';
+  else if(core.every(k=>state[k]===true))t=state.peer?'<span class="ok">✅ ผ่าน! เครื่องนี้เล่นได้</span>':'<span class="ok">✅ เชื่อมต่อได้ — รอเพื่อนเปิดหน้านี้เพื่อทดสอบต่อ</span>';
+  $('verdict').innerHTML=t}
+CHECKS.forEach(([k])=>state[k]=null);setCheck('page',true);
+
+// font check
+document.fonts.ready.then(()=>{const ok=document.fonts.check('12px "Press Start 2P"');setCheck('font',ok,ok?'':'โดนบล็อก — จะฝังฟอนต์ในไฟล์แทน (ไม่กระทบการเล่น)')});
+
+// library + config
+const cfg=window.BUDDY_CONFIG||{};
+const libOK=!!(window.supabase&&window.supabase.createClient);
+setCheck('lib',libOK,libOK?'':'โหลดจาก cdn.jsdelivr.net ไม่ได้ — อาจโดน firewall บล็อก');
+const cfgOK=/^https:\/\/.+\.supabase\.co\/?$/.test(cfg.SUPABASE_URL||'')&&/^(sb_publishable_|eyJ)/.test(cfg.SUPABASE_KEY||'');
+setCheck('cfg',cfgOK,cfgOK?'':'ยังไม่ได้วาง URL/Key ใน config.js หรือรูปแบบไม่ถูก');
+
+// realtime
+let ch,me,joined=false;const pings={},answers={};
+if(libOK&&cfgOK){
+  const sb=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_KEY);
+  me={id:Math.random().toString(36).slice(2,8)};
+  ch=sb.channel('buddy-connection-test',{config:{presence:{key:me.id},broadcast:{self:true}}});
+  const t0=performance.now();
+  ch.on('presence',{event:'sync'},renderPeople)
+    .on('broadcast',{event:'ping'},({payload})=>{if(payload.from!==me.id&&joined)ch.send({type:'broadcast',event:'pong',payload:{to:payload.from,from:me.id,t:payload.t}})})
+    .on('broadcast',{event:'pong'},({payload})=>{if(payload.to!==me.id)return;pings[payload.from]=Math.round(performance.now()-payload.t);setCheck('peer',true,'ได้รับตอบกลับจากเครื่องอื่น');renderPeople()})
+    .on('broadcast',{event:'lock'},({payload})=>{answers[payload.id]={name:payload.name,v:null};renderAns();log(`${payload.name} ส่งคำตอบ 🔒`)})
+    .on('broadcast',{event:'reveal'},()=>{if(me.secret!=null)ch.send({type:'broadcast',event:'show',payload:{id:me.id,name:me.name,v:me.secret}})})
+    .on('broadcast',{event:'show'},({payload})=>{answers[payload.id]={name:payload.name,v:payload.v};renderAns()})
+    .subscribe(s=>{log('realtime: '+s);
+      if(s==='SUBSCRIBED'){setCheck('rt',true,`${Math.round(performance.now()-t0)} ms`);$('join').disabled=false}
+      if(s==='CHANNEL_ERROR'||s==='TIMED_OUT')setCheck('rt',false,'เชื่อมไม่ได้ ('+s+') — อาจโดน firewall/VPN บล็อก WebSocket')});
+  setTimeout(()=>{if(state.rt==null)setCheck('rt',false,'รอนานเกิน 15 วิ — อาจโดนบล็อก')},15000);
+}else setCheck('rt',false,'ข้ามเพราะข้อด้านบนไม่ผ่าน');
+
+function renderPeople(){if(!ch)return;const ps=Object.entries(ch.presenceState()).map(([id,a])=>({id,...a[0]}));
+  $('cnt').textContent=ps.length;
+  $('people').innerHTML=ps.map(p=>`<tr><td>${esc(p.name)}${p.id===me.id?' (คุณ)':''}</td><td>${esc(p.net)}</td><td>${p.id===me.id?'—':pings[p.id]!=null?`<span class="${pings[p.id]<1000?'ok':'bad'}">${pings[p.id]} ms</span>`:'…'}</td></tr>`).join('');
+  if(ps.length>1&&state.peer!==true)setCheck('peer',true,`เห็น ${ps.length-1} เครื่อง`)}
+function renderAns(){$('answers').innerHTML=Object.values(answers).map(a=>`<tr><td>${esc(a.name)}</td><td>${a.v==null?'🔒 ซ่อนอยู่':`<b class="ok">${esc(a.v)}</b>`}</td></tr>`).join('')}
+
+$('join').onclick=async()=>{const n=$('name').value.trim();if(!n)return $('name').focus();
+  me.name=n;await ch.track({name:n,net:$('net').value});joined=true;log('join: '+n);
+  ['ping','lock','reveal'].forEach(id=>$(id).disabled=false);$('join').disabled=true};
+$('ping').onclick=()=>{ch.send({type:'broadcast',event:'ping',payload:{from:me.id,t:performance.now()}});log('ping ส่งแล้ว')};
+$('lock').onclick=()=>{const v=parseInt($('num').value);if(isNaN(v))return;me.secret=v;$('lock').disabled=true;$('num').disabled=true;
+  ch.send({type:'broadcast',event:'lock',payload:{id:me.id,name:me.name}})};
+$('reveal').onclick=()=>ch.send({type:'broadcast',event:'reveal',payload:{}});
+</script>
+</body>
+</html>
